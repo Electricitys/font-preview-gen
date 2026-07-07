@@ -3,10 +3,10 @@ name: Release
 on:
   push:
     tags:
-      - "v*" # Triggers when you push any version tag like v1.0.0
+      - "v*" # Runs when you push v0.2.0, v0.3.0, etc.
 
 permissions:
-  contents: write # Grants the action permission to create a release and upload assets
+  contents: write
 
 jobs:
   release:
@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Pulls full tag history to move the rolling 'latest' pointer safely
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -26,19 +28,38 @@ jobs:
       - name: Compile Multi-Architecture Binaries
         run: |
           make release
-        # This executes your Makefile, reads version.txt, builds binaries inside a fresh, temporary 'dist/' folder on the GitHub server.
 
       - name: Get Version String
         id: get_version
         run: |
           echo "VERSION=$(cat version.txt)" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release and Upload Artifacts
+      # 1. This updates the raw git reference "latest" to point to the current commit
+      - name: Update Rolling 'latest' Git Tag Pointer
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f latest
+          git push origin latest --force
+
+      # 2. This publishes the files under your pushed version tag (e.g., v0.2.0)
+      - name: Create Versioned GitHub Release
+        id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          # This pulls all binaries matching the wildcard pattern from the server's temporary dist folder
           files: |
             dist/font-gen-${{ steps.get_version.outputs.VERSION }}-*
           generate_release_notes: true
+          make_latest: true # Forces GitHub to mark this v0.2.0 release block with the green UI "Latest" badge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 3. This attaches the exact same binaries to the rolling "latest" tag asset block
+      - name: Sync Binaries to Rolling 'latest' Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          files: |
+            dist/font-gen-${{ steps.get_version.outputs.VERSION }}-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
