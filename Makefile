@@ -67,6 +67,20 @@ version-bump:
 	@changeset version --project font-preview-gen
 	@echo "=> New resolved project version is: $$(cat version.txt)"
 
+.PHONY: git-release
+git-release:
+	@NEW_VERSION=$$(cat version.txt); \
+	echo "=> Committing and publishing version v$${NEW_VERSION} to GitHub..."; \
+	git add version.txt CHANGELOG.md .changesets/; \
+	git commit -m "chore: release v$${NEW_VERSION}" || echo "=> No structural file changes to commit"; \
+	git tag -f v$${NEW_VERSION}; \
+	git tag -f latest; \
+	echo "=> Pushing commits and release tags to remote origin..."; \
+	git push origin HEAD; \
+	git push origin v$${NEW_VERSION} --force; \
+	git push origin latest --force; \
+	echo "=> Successfully pushed! GitHub Actions will now build and index v$${NEW_VERSION} and sync the 'latest' release point."
+
 # ====================================================================================
 # Cross-Compilation (Production Release)
 # ====================================================================================
