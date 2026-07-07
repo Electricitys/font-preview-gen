@@ -1,3 +1,5 @@
+// internal/renderer/drawer.go
+
 package renderer
 
 import (
