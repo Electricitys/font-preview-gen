@@ -64,7 +64,7 @@ changeset:
 .PHONY: version-bump
 version-bump:
 	@echo "=> Consuming fragment files and updating version strings..."
-	@changeset version
+	@changeset version --project font-preview-gen
 	@echo "=> New resolved project version is: $$(cat version.txt)"
 
 # ====================================================================================
