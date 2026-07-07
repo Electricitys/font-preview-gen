@@ -5,8 +5,10 @@ BINARY_NAME=font-gen
 CMD_DIR=./cmd/font-gen
 DIST_DIR=dist
 
+# Dynamic Version Lookup from version.txt
+VERSION?=$(shell cat version.txt 2>/dev/null || echo "0.1.0")
+
 # Core Build Flags
-VERSION?=0.1.0
 LDFLAGS=-ldflags "-w -s -X main.Version=${VERSION}"
 
 # Supported Platforms for Cross-Compilation
@@ -22,17 +24,17 @@ all: clean tidy fmt test build
 .PHONY: tidy
 tidy:
 	@echo "=> Tidying up Go modules..."
-	go mod tidy
+	@go mod tidy
 
 .PHONY: fmt
 fmt:
 	@echo "=> Formatting code structures..."
-	go fmt ./...
+	@go fmt ./...
 
 .PHONY: test
 test:
 	@echo "=> Running test suites..."
-	go test -v -race ./...
+	@go test -v -race ./...
 
 # ====================================================================================
 # Local Compilations
@@ -40,15 +42,30 @@ test:
 
 .PHONY: build
 build: tidy
-	@echo "=> Compiling local binary [${BINARY_NAME}]..."
-	mkdir -p ${DIST_DIR}
-	go build ${LDFLAGS} -o ${DIST_DIR}/${BINARY_NAME} ${CMD_DIR}
+	@echo "=> Compiling local binary [${BINARY_NAME}] version [${VERSION}]..."
+	@mkdir -p ${DIST_DIR}
+	@go build ${LDFLAGS} -o ${DIST_DIR}/${BINARY_NAME} ${CMD_DIR}
 	@echo "=> Built successfully to ${DIST_DIR}/${BINARY_NAME}"
 
 .PHONY: run
 run: build
 	@echo "=> Launching local instance with arguments..."
-	./${DIST_DIR}/${BINARY_NAME} $(ARGS)
+	@./${DIST_DIR}/${BINARY_NAME} $(ARGS)
+
+# ====================================================================================
+# Changeset-Driven Version Control Targets
+# ====================================================================================
+
+.PHONY: changeset
+changeset:
+	@echo "=> Creating a new intent-to-change fragment..."
+	@changeset add
+
+.PHONY: version-bump
+version-bump:
+	@echo "=> Consuming fragment files and updating version strings..."
+	@changeset version
+	@echo "=> New resolved project version is: $$(cat version.txt)"
 
 # ====================================================================================
 # Cross-Compilation (Production Release)
@@ -56,8 +73,8 @@ run: build
 
 .PHONY: release
 release: clean tidy
-	@echo "=> Starting multi-platform release generation..."
-	mkdir -p ${DIST_DIR}
+	@echo "=> Starting multi-platform release generation for version [${VERSION}]..."
+	@mkdir -p ${DIST_DIR}
 	@set -e; \
 	for platform in $(PLATFORMS); do \
 		GOOS=$${platform%/*}; \
@@ -76,4 +93,4 @@ release: clean tidy
 .PHONY: clean
 clean:
 	@echo "=> Cleaning up build artifacts..."
-	rm -rf ${DIST_DIR}
+	@rm -rf ${DIST_DIR}

@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*" # Triggers the workflow only when pushing tags starting with v (e.g., v1.0.0)
+
+permissions:
+  contents: write # Crucial permission allowing the Action to create releases and upload files
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod" # Dynamically checks matching Go runtime criteria from your go.mod
+          cache: true # Speeds up subsequent workflow actions by caching go packages
+
+      # Option A: If you kept your cross-compilation cross-platform loop inside your Makefile (e.g., make release)
+      - name: Compile Multi-Architecture Binaries (via Makefile)
+        run: |
+          make release
+        # Note: If your Makefile output directory isn't exactly dist/,
+        # ensure your build target writes the binaries to a folder named dist/
+
+      # Option B: Backup fallback compiling explicitly if you haven't wired up "make release" yet:
+      # - name: Cross-Compile Binaries manually
+      #   env:
+      #     CGO_ENABLED: 0
+      #   run: |
+      #     mkdir -p dist
+      #     GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/font-gen-linux-amd64 ./cmd/font-gen
+      #     GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/font-gen-linux-arm64 ./cmd/font-gen
+      #     GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/font-gen-windows-amd64.exe ./cmd/font-gen
+      #     GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/font-gen-darwin-arm64 ./cmd/font-gen
+
+      - name: Create GitHub Release and Upload Artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/font-gen-linux-amd64
+            dist/font-gen-linux-arm64
+            dist/font-gen-windows-amd64.exe
+            dist/font-gen-darwin-arm64
+          generate_release_notes: true # Automatically generates a changelog from commit messages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Provided natively by GitHub Actions runtime environment
